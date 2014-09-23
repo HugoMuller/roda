@@ -6,72 +6,74 @@
 var fs = require('fs');
 var path = require('path');
 
-var Roda = function(){
-  this._included = [];
-  this._excluded = [];
-};
+function shapeParams(params){
+  if((Array.isArray(params.include) || typeof params.include === 'string') && params.include.length===0
+    || !Array.isArray(params.include) && typeof  params.include !== 'string')
+  {
+    params.include = [path.dirname(module.parent.paths[0])];
+  }else if(typeof params.include === 'string'){
+    params.include = [params.include];
+  }
+
+  if(!params.exclude) params.exclude = [];
+  if(typeof params.exclude === 'string') params.exclude = [params.exclude];
+  if(typeof params.callback !== 'function') params.callback = null;
+
+  params.exclude.forEach(function(excluded, i){
+    this[i] = path.normalize(excluded);
+  }, params.exclude);
+}
 
 /**
  * require all the files in `paths` directory, excluding `excluded` directories.
  * if no callback, callback = require
  *
- * @param {string|Array} paths - a file/directory or an array of files/directories to load
- * @param {string|Array} excluded - a file/directory or an array of files/directories to exclude
- * @param {function} callback - a function to execute for each file to load (must contain require)
+ * @param {object} params
+ * {string|Array} params.include - a file/directory or an array of files/directories to load
+ * {string|Array} params.exclude - a file/directory or an array of files/directories to exclude
+ * {function} params.callback - a function to execute for each file to load (must contain require)
  * @returns {*} - modules
  */
-Roda.prototype.load = function(paths, excluded, callback){
+exports.load = function load(params){
   var loaded = {};
-
-  if(Array.isArray(paths) && paths.length===0
-    || typeof paths === 'string' && paths.length===0
-    || !Array.isArray(paths) && typeof  paths !== 'string')
-  {
-    console.error('Roda ERROR: No module requested');
-    return loaded;
-  }else if(typeof paths === 'string') paths = [paths];
+  params = params || {};
+  shapeParams(params);
   
-  if(!excluded){
-    excluded = [];
-    callback = require;
-  }else if(typeof excluded === 'function'){
-    callback = excluded;
-    excluded = [];
-  }else if(typeof callback !== 'function'){
-    callback = require;
-  }
-  if(typeof excluded === 'string') excluded = [excluded];
-
-  excluded.forEach(function(excl, i){
-    this[i] = path.normalize(excl);
-  }, excluded);
-
-  var self = this;
-  paths.forEach(function(onePath){
-    onePath = path.normalize(onePath);
-    if(excluded.indexOf(onePath) !== -1) return;
-    var exists = fs.existsSync(onePath);
-    if(!exists || exists && !fs.statSync(onePath).isDirectory()){
+  params.include.forEach(function(target){
+    target = path.normalize(target);
+    if(params.exclude.indexOf(target) !== -1) return;
+    var exists = fs.existsSync(target);
+    /* if the target is not a directory, try to require it.
+     * if the target does not exists, it is perhaps a core module
+     * or it is inside node_modules directory, so try to load it.
+    */
+    if(!exists || exists && !fs.statSync(target).isDirectory()){
       try{
-        loaded[onePath] = callback(onePath);
+        var name = path.basename(target, '.js');
+        loaded[name] = require(target);
+        if(params.callback && loaded[name] !== null) params.callback(loaded[name], target);
       }catch(err){
-        console.error('Roda ERROR while loading', onePath, err.message);
+        console.error('Roda ERROR while loading', target, err.message);
       }
       return;
     }
 
+    // if the target is a directory, read it and require each file in sub-directories if any.
     fs
-      .readdirSync(onePath)
+      .readdirSync(target)
       .forEach(function(filename){
-        var file = path.join(onePath, filename);
-        if(excluded.indexOf(file) !== -1) return;
-        
+        var file = path.join(target, filename);
+        if(params.exclude.indexOf(file) !== -1) return;
+
         try{
           var stat = fs.statSync(file);
           if(stat.isFile() && /(.*)\.js$/.test(filename)){
-            loaded[filename.replace(/.js$/, '')] = callback(file);
+            var name = path.basename(filename, '.js');
+            loaded[name] = require(file);
+            if(params.callback && loaded[name] !== null) params.callback(loaded[name], name);
           }else if(stat.isDirectory()){
-            self.load(file, excluded, callback);
+            params.include = file;
+            load(params);
           }
         }catch(err){
           console.error('Roda ERROR while loading', file, err.message);
@@ -81,38 +83,3 @@ Roda.prototype.load = function(paths, excluded, callback){
 
   return loaded;
 };
-
-/**
- * Set the files/directories to load
- * 
- * @returns {Roda}
- */
-Roda.prototype.include = function(){
-  var _included = (Array.isArray(arguments[0])) ? arguments[0] : Array.prototype.slice.call(arguments);
-  this._included = this._included.concat(_included);
-  return this;
-};
-
-/**
- * Set the files/directories to exclude
- * 
- * @returns {Roda}
- */
-Roda.prototype.exclude = function(){
-  var _excluded = (Array.isArray(arguments[0])) ? arguments[0] : Array.prototype.slice.call(arguments);
-  this._excluded = this._excluded.concat(_excluded);
-  return this;
-};
-
-/**
- * @param callback
- * @returns {*}
- */
-Roda.prototype.exec = function(callback){
-  var loaded = this.load(this._included, this._excluded, callback);
-  this._included = [];
-  this._excluded = [];
-  return loaded;
-};
-
-module.exports = new Roda();

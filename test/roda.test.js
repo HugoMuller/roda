@@ -6,15 +6,8 @@ var roda = require('../roda');
 describe('<Unit Tests>', function(){
   describe('Module Roda', function(){
     describe('Method load', function(){
-      it('should return nothing and print an error', function(done){
-        roda.load([]).should.containEql({});
-        roda.load('').should.containEql({});
-        roda.load(0).should.containEql({});
-        done();
-      });
-      
       it('should return the core module path', function(done){
-        var loaded = roda.load(['path']);
+        var loaded = roda.load({ include: 'path' });
         Object.keys(loaded).should.eql(['path']);
         should.exist(loaded['path']);
         (typeof loaded['path'].normalize === 'function').should.equal(true);
@@ -22,19 +15,20 @@ describe('<Unit Tests>', function(){
       });
 
       it('should return the module logbrok', function(done){
-        var loaded = roda.load('logbrok', function(m){
-          return require(m)(__filename);
-        });
+        var loaded = roda.load({ include: 'logbrok' });
+        var logbrok = loaded['logbrok'](__filename);
         Object.keys(loaded).should.eql(['logbrok']);
         should.exist(loaded['logbrok']);
-        (typeof loaded['logbrok'].log === 'function').should.equal(true);
+        (typeof logbrok.log === 'function').should.equal(true);
         done();
       });
-      
+
       it('should load custom_modules directory, excluding excluded-*.js files', function(done){
         var dir = __dirname+'/../custom_modules';
-        var loaded = roda.load(dir, [dir+'/excluded-A.js', dir+'/exluded']);
-        Object.keys(loaded).should.eql(['module-A', 'module-B', 'module-C']);
+        var loaded = roda.load({ include: dir, exclude: [dir+'/excluded-A.js', dir+'/excluded'] });
+        var keys_loaded = Object.keys(loaded); 
+        keys_loaded.length.should.eql(3);
+        keys_loaded.should.eql(['module-A', 'module-B', 'module-C']);
         (typeof loaded['module-A'].me === 'function').should.equal(true);
         (typeof loaded['module-B'].me === 'function').should.equal(true);
         (typeof loaded['module-C'].me === 'function').should.equal(true);
@@ -43,62 +37,44 @@ describe('<Unit Tests>', function(){
         loaded['module-C'].me().should.equal('C');
         done();
       });
-    });
-    
-    describe('Method include', function(){
-      it('should return the roda instance with one module path', function(done){
-        roda.include('a')._included.should.eql(['a']);
-        done();
-      });
       
-      it('should add several paths to the roda instance', function(done){
-        roda.include('b', 'c', 'd')._included.should.eql(['a', 'b', 'c', 'd']);
-        roda.include(['e', 'f'])._included.should.eql(['a', 'b', 'c', 'd', 'e', 'f']);
+      it('should apply callback on each module loaded', function(done){
+        var dir = __dirname+'/../custom_modules';
+        var letters = {};
+        var loaded = roda.load({
+          include: dir,
+          exclude: [dir+'/excluded-A.js', dir+'/excluded'],
+          callback: function(module, moduleName){
+            letters[moduleName] = module.me();
+        }});
+        var keys_letters = Object.keys(letters);
+        keys_letters.length.should.eql(3);
+        keys_letters.should.eql(['module-A', 'module-B', 'module-C']);
+        letters['module-A'].should.equal('A');
+        letters['module-B'].should.equal('B');
+        letters['module-C'].should.equal('C');
         done();
       });
 
-      it('should do nothing if no argument', function(done){
-        roda.include()._included.should.eql(['a', 'b', 'c', 'd', 'e', 'f']);
-        done();
-      });
-    });
-
-    describe('Method exclude', function(){
-      it('should exclude two files', function(done){
-        roda.exclude('b', 'd')._excluded.should.eql(['b', 'd']);
-        roda.exclude(['c', 'e'])._excluded.should.eql(['b', 'd', 'c', 'e']);
-        done();
-      });
-      
-      it('should do nothing if no argument', function(done){
-        roda.exclude()._excluded.should.eql(['b', 'd', 'c', 'e']);
-        done();
-      });
-    });
-
-    describe('Method exec', function(){
-      before(function(ready){
-        roda._included = [];
-        roda._excluded = [];
-        ready();
-      });
-      
       it('should load logbrok and path', function(done){
-        var loaded = roda
-          .include('path', 'logbrok', 'fs')
-          .exclude('fs')
-          .exec();
-        var _loaded = Object.keys(loaded);
-        _loaded.length.should.equal(2);
-        _loaded.should.eql(['path', 'logbrok']);
+        var loaded = roda.load({ include: ['path', 'logbrok', 'fs'], exclude: 'fs' });
+        var module_names = Object.keys(loaded);
+        module_names.length.should.equal(2);
+        module_names.should.eql(['path', 'logbrok']);
         should.not.exist(loaded['fs']);
         should.exist(loaded['path']);
         should.exist(loaded['logbrok']);
-        var _logbrok = loaded['logbrok'](__filename);
+        var logbrok = loaded['logbrok'](__filename);
         (typeof loaded['path'].normalize === 'function').should.equal(true);
-        (typeof _logbrok.log === 'function').should.equal(true);
-        roda._included.should.eql([]);
-        roda._excluded.should.eql([]);
+        (typeof logbrok.log === 'function').should.equal(true);
+        done();
+      });
+
+      it('should load current directory if no args or no target', function(done){
+        var loaded = roda.load();
+        var keys_loaded = Object.keys(loaded);
+        keys_loaded.length.should.eql(1);
+        keys_loaded.should.eql(['roda.test']);
         done();
       });
     });
