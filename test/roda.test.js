@@ -7,15 +7,15 @@ describe('<Unit Tests>', function(){
   describe('Module Roda', function(){
     describe('Method load', function(){
       it('should return the core module path', function(done){
-        var loaded = roda.load({ include: 'path' });
+        var loaded = roda('path');
         Object.keys(loaded).should.eql(['path']);
-        should.exist(loaded['path']);
+        should.exist(loaded.path);
         (typeof loaded['path'].normalize === 'function').should.equal(true);
         done();
       });
 
       it('should return the module logbrok', function(done){
-        var loaded = roda.load({ include: 'logbrok' });
+        var loaded = roda({ include: 'logbrok' });
         var logbrok = loaded['logbrok'](__filename);
         Object.keys(loaded).should.eql(['logbrok']);
         should.exist(loaded['logbrok']);
@@ -25,7 +25,7 @@ describe('<Unit Tests>', function(){
 
       it('should load custom_modules directory, excluding excluded-*.js files', function(done){
         var dir = __dirname+'/../custom_modules';
-        var loaded = roda.load({ include: dir, exclude: [dir+'/excluded-A.js', dir+'/excluded'] });
+        var loaded = roda({ include: dir, exclude: [dir+'/excluded-A.js', dir+'/excluded'] });
         var keys_loaded = Object.keys(loaded); 
         keys_loaded.length.should.eql(3);
         keys_loaded.should.eql(['module-A', 'module-B', 'module-C']);
@@ -41,7 +41,7 @@ describe('<Unit Tests>', function(){
       it('should apply callback on each module loaded', function(done){
         var dir = __dirname+'/../custom_modules';
         var letters = {};
-        var loaded = roda.load({
+        var loaded = roda({
           include: dir,
           exclude: [dir+'/excluded-A.js', dir+'/excluded'],
           callback: function(module, moduleName){
@@ -57,7 +57,7 @@ describe('<Unit Tests>', function(){
       });
 
       it('should load logbrok and path', function(done){
-        var loaded = roda.load({ include: ['path', 'logbrok', 'fs'], exclude: 'fs' });
+        var loaded = roda({ include: ['path', 'logbrok', 'fs'], exclude: 'fs' });
         var module_names = Object.keys(loaded);
         module_names.length.should.equal(2);
         module_names.should.eql(['path', 'logbrok']);
@@ -71,7 +71,7 @@ describe('<Unit Tests>', function(){
       });
 
       it('should load current directory if no args or no target', function(done){
-        var loaded = roda.load();
+        var loaded = roda();
         var keys_loaded = Object.keys(loaded);
         keys_loaded.length.should.eql(1);
         keys_loaded.should.eql(['roda.test']);

@@ -7,6 +7,10 @@ var fs = require('fs');
 var path = require('path');
 
 function shapeParams(params){
+  params = params || {};
+  
+  if(typeof params === 'string') params = { include: params };
+  
   if((Array.isArray(params.include) || typeof params.include === 'string') && params.include.length===0
     || !Array.isArray(params.include) && typeof  params.include !== 'string')
   {
@@ -22,6 +26,8 @@ function shapeParams(params){
   params.exclude.forEach(function(excluded, i){
     this[i] = path.normalize(excluded);
   }, params.exclude);
+  
+  return params;
 }
 
 /**
@@ -34,10 +40,9 @@ function shapeParams(params){
  * {function} params.callback - a function to execute for each file to load (must contain require)
  * @returns {*} - modules
  */
-exports.load = function load(params){
+module.exports = function load(params){
   var loaded = {};
-  params = params || {};
-  shapeParams(params);
+  params = shapeParams(params);
   
   params.include.forEach(function(target){
     target = path.normalize(target);

@@ -12,8 +12,14 @@ Installation
 
 Usage
 -----
+
+    var plugins = require('roda')({
+      include: /* files or directories to load */,
+      exclude: /* files or directories NOT to load */,
+      callback: /* function to apply on each loaded plugin */
+    });
     
-Assuming we have a `plugins` containing your own plugins:
+Assuming the following case: a project with a `plugins` directory containing custom plugins:
 
     sampleProject
     ├── plugins
@@ -31,60 +37,67 @@ Assuming we have a `plugins` containing your own plugins:
     ├── index.js
     └── package.json
 
-There are several ways to load the plugins `pluginOne.js`, `pluginTwo.js`, `pluginThree.js`.
+#####Loading an entire directory
+To load the entire directory, you can simply pass the directory path:
 
-###Method load(paths [, excluded [, callback]])
-
-You can invoke the `load` method, with the target directory, the list of the files/directories to exclude,
-and a callback to execute with each module.  
-If you omit the callback, the basic `require` will be called.  
-If you pass a callback, make sure you call at least require(module) inside, in order to load your modules.
-
-    var roda = require('roda');
-    var dir = __dirname+'/plugins';
-    
-    // These 3 calls do the same thing:
-    var plugins = roda.load(dir, [dir+'excludeMe.js', dir+'/excludeThem']);
+    var plugins = require('roda')(__dirname+'/plugins');
     // OR
-    var plugins = roda.load([dir+'/pluginA.js', dir+'/pluginB.js', dir+'/pluginC.js']);
-    //
-    var plugins = roda.load(dir, [dir+'excludeMe.js', dir+'/excludeThem'], function(module){ return require(module); });
-    
-Then, to access your modules, simply do:
+    var plugins = require('roda')({ include: __dirname+'/plugins' });
 
-    plugins['module-A'].doSomething();
-    plugins['module-B'].doAnotherThing();
-    
-If you pass a callback, make sure you return at least require(module), in order to load your modules and be able to access it later.
+#####Loading the current directory
+To load the current directory, i.e., the directory from which you're requiring roda, simply omit the target:
 
-    var roda = require('roda');
-    var dir = __dirname+'/plugins';
+    var plugins = require('roda')();
+    // OR
+    var plugins = require('roda')({
+      exclude: /* something to exclude or nothing... */
+    });
+
+#####Excluding files and subdirectories
+To load the directory, excluding one or several files, do as follow:
+
+    var load = require('roda');
+    var plugins;
+    var target = __dirname+'/plugins';
     
-    var plugins = roda.load(dir, function(module){
-      console.log('sample callback called with ', module);
-      // some stuff
-      return require(module);
-      // OR for example
-      return require(module)(/* some params */);
+    // excluding one file
+    plugins = load({
+      include: target,
+      exclude: target+'/excludeMe.js'
     });
     
-###Chaining methods
-
-If you prefer, you can chain special methods to load your modules.  
-The result of this example is exactly the same as the previous one. 
-
-    var roda = require('roda');
-    var dir = __dirname+'/plugins';
+    // excluding several files and subdirectories
+    plugins = load({
+      include: target,
+      exclude: [target+'/excludeMe.js', target+'/excludeThem']
+    });
     
-    var plugins = roda
-      .include(dir)
-      .exclude([dir+'excludeMe.js', dir+'/excludeThem'])
-      .exec(function(module){ return require(module); });
+#####Accessing the plugins
+Then, to access your plugins, simply do:
+
+    plugins['pluginOne'].doSomething();
+    plugins['pluginTwo'].doAnotherThing();
+    plugins.pluginThree.doWhateverYouWant();
+    
+#####Passing a callback
+You can pass a callback as well, if you want to do some extra stuff:
+
+    var target = __dirname+'/plugins';
+    var plugins = require('roda')({
+      include: target,
+      exclude: [target+'/excludeMe.js', target+'/excludeThem'],
+      callback: function(plugin, pluginName){
+        console.log('loading', pluginName, '...');
+        plugin.doSomeStuff();
+    }});
 
 Warning
 -------
 
-This module loader cannot load `should` module.
+Roda cannot load `should` module, because `should` extends the Object prototype by adding the `should` property.
+If you try to load `should` with roda, it will result in a conflict when accessing it:
+
+    plugins.should... what's that?
 
 Running tests
 -------------
@@ -97,12 +110,6 @@ You need to install this framework in order to run the tests:
 Then, to run the tests, simply do:
 
     npm test
-
-Coming soon
------------
-
-This module can be improved somehow. It is not enough easy to use, in my opinion.
-That's why I'm working on another version, simplier than this one. :D
 
 License
 -------
