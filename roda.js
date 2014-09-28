@@ -6,10 +6,16 @@
 var fs = require('fs');
 var path = require('path');
 
+function extend(dest, source){
+  for(var attr in source){
+    if(source.hasOwnProperty(attr)) dest[attr] = source[attr];
+  }
+}
+
 function shapeParams(params){
   params = params || {};
   
-  if(typeof params === 'string') params = { include: params };
+  if(typeof params === 'string') params = { include: [params] };
   
   if((Array.isArray(params.include) || typeof params.include === 'string') && params.include.length===0
     || !Array.isArray(params.include) && typeof  params.include !== 'string')
@@ -20,7 +26,7 @@ function shapeParams(params){
   }
 
   if(!params.exclude) params.exclude = [];
-  if(typeof params.exclude === 'string') params.exclude = [params.exclude];
+  else if(typeof params.exclude === 'string') params.exclude = [params.exclude];
   if(typeof params.callback !== 'function') params.callback = null;
 
   params.exclude.forEach(function(excluded, i){
@@ -28,6 +34,39 @@ function shapeParams(params){
   }, params.exclude);
   
   return params;
+}
+
+function isFile(file, filename){
+  return file.isFile() && /(.*)\.js$/.test(filename);
+}
+
+function requireFile(loaded, file, callback){
+  var name = path.basename(file, '.js');
+  try{
+    loaded[name] = require(file);
+    if(callback && loaded[name] !== null) callback(loaded[name], name);
+  }catch(err){
+    throw new Error('Roda ERROR while loading ' + file + ': ' + err.message);
+  }
+}
+
+function requireDirectory(loaded, directory, params){
+  fs
+    .readdirSync(directory)
+    .forEach(function(filename){
+      var file = path.join(directory, filename);
+      if(params.exclude.indexOf(file) !== -1) return;
+
+      var stat = fs.statSync(file);
+      if(isFile(stat, filename)){
+        requireFile(loaded, file, params.callback);
+      }else if(stat.isDirectory()){
+        params.include = file;
+        extend(loaded, load(params));
+      }else{
+        throw new Error('Roda ERROR while loading ' + file + ' is neither a directory nor a file');
+      }
+    });
 }
 
 /**
@@ -40,51 +79,26 @@ function shapeParams(params){
  * {function} params.callback - a function to execute for each file to load (must contain require)
  * @returns {*} - modules
  */
-module.exports = function load(params){
+function load(params){
   var loaded = {};
   params = shapeParams(params);
   
   params.include.forEach(function(target){
     target = path.normalize(target);
     if(params.exclude.indexOf(target) !== -1) return;
-    var exists = fs.existsSync(target);
-    /* if the target is not a directory, try to require it.
-     * if the target does not exists, it is perhaps a core module
-     * or it is inside node_modules directory, so try to load it.
-    */
-    if(!exists || exists && !fs.statSync(target).isDirectory()){
-      try{
-        var name = path.basename(target, '.js');
-        loaded[name] = require(target);
-        if(params.callback && loaded[name] !== null) params.callback(loaded[name], target);
-      }catch(err){
-        console.error('Roda ERROR while loading', target, err.message);
-      }
-      return;
+    if(!fs.existsSync(target)) throw new Error('Roda ERROR while loading ' + target + ': ' + target + ' does not exist');
+
+    var stat = fs.statSync(target);
+    if(isFile(stat, target)){
+      requireFile(loaded, target, params.callback);
+    }else if(stat.isDirectory()){
+      requireDirectory(loaded, target, params);
+    }else{
+      throw new Error('Roda ERROR while loading ' + target + ': ' + target + ' is neither a directory nor a file');
     }
-
-    // if the target is a directory, read it and require each file in sub-directories if any.
-    fs
-      .readdirSync(target)
-      .forEach(function(filename){
-        var file = path.join(target, filename);
-        if(params.exclude.indexOf(file) !== -1) return;
-
-        try{
-          var stat = fs.statSync(file);
-          if(stat.isFile() && /(.*)\.js$/.test(filename)){
-            var name = path.basename(filename, '.js');
-            loaded[name] = require(file);
-            if(params.callback && loaded[name] !== null) params.callback(loaded[name], name);
-          }else if(stat.isDirectory()){
-            params.include = file;
-            load(params);
-          }
-        }catch(err){
-          console.error('Roda ERROR while loading', file, err.message);
-        }
-      });
   });
 
   return loaded;
-};
+}
+
+module.exports = load;

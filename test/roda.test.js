@@ -6,20 +6,33 @@ var roda = require('../roda');
 describe('<Unit Tests>', function(){
   describe('Module Roda', function(){
     describe('Method load', function(){
-      it('should return the core module path', function(done){
-        var loaded = roda('path');
-        Object.keys(loaded).should.eql(['path']);
-        should.exist(loaded.path);
-        (typeof loaded['path'].normalize === 'function').should.equal(true);
+      it('should fail to load an nonexistent file', function(done){
+        var loaded;
+        var error;
+        try{
+          loaded = roda({ include: 'nonexistent' });          
+        }catch(err){
+          if(err) error = err;
+        }finally{
+          should.exist(error);
+          should.not.exist(loaded);
+          done();
+        }
+      });
+      
+      it('should load custom_modules directory', function(done){
+        var loaded = roda(__dirname+'/../custom_modules');
+        var keys_loaded = Object.keys(loaded);
+        keys_loaded.length.should.eql(6);
+        keys_loaded.should.eql(['excluded-B', 'excluded-C', 'excluded-A', 'module-A', 'module-B', 'module-C']);
         done();
       });
 
-      it('should return the module logbrok', function(done){
-        var loaded = roda({ include: 'logbrok' });
-        var logbrok = loaded['logbrok'](__filename);
-        Object.keys(loaded).should.eql(['logbrok']);
-        should.exist(loaded['logbrok']);
-        (typeof logbrok.log === 'function').should.equal(true);
+      it('should load custom_modules directory in another way', function(done){
+        var loaded = roda({ include: __dirname+'/../custom_modules' });
+        var keys_loaded = Object.keys(loaded);
+        keys_loaded.length.should.eql(6);
+        keys_loaded.should.eql(['excluded-B', 'excluded-C', 'excluded-A', 'module-A', 'module-B', 'module-C']);
         done();
       });
 
@@ -56,21 +69,7 @@ describe('<Unit Tests>', function(){
         done();
       });
 
-      it('should load logbrok and path', function(done){
-        var loaded = roda({ include: ['path', 'logbrok', 'fs'], exclude: 'fs' });
-        var module_names = Object.keys(loaded);
-        module_names.length.should.equal(2);
-        module_names.should.eql(['path', 'logbrok']);
-        should.not.exist(loaded['fs']);
-        should.exist(loaded['path']);
-        should.exist(loaded['logbrok']);
-        var logbrok = loaded['logbrok'](__filename);
-        (typeof loaded['path'].normalize === 'function').should.equal(true);
-        (typeof logbrok.log === 'function').should.equal(true);
-        done();
-      });
-
-      it('should load current directory if no args or no target', function(done){
+      it('should load current directory if no arguments or no target passed', function(done){
         var loaded = roda();
         var keys_loaded = Object.keys(loaded);
         keys_loaded.length.should.eql(1);

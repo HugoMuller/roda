@@ -14,9 +14,11 @@ Usage
 -----
 
     var plugins = require('roda')({
-      include: /* files or directories to load */,
-      exclude: /* files or directories NOT to load */,
-      callback: /* function to apply on each loaded plugin */
+      include: ['path/to/my/plugins', 'sample-plugin.js'],            /* files or directories to load */
+      exclude: ['path/to/my/plugins/excluded', 'excluded-plugin.js'], /* files or directories NOT to load */
+      callback: function(plugin, pluginName){
+        /* function to apply on each loaded plugin */
+      }
     });
     
 Assuming the following case: a project with a `plugins` directory containing custom plugins:
@@ -90,14 +92,6 @@ You can pass a callback as well, if you want to do some extra stuff:
         console.log('loading', pluginName, '...');
         plugin.doSomeStuff();
     }});
-
-Warning
--------
-
-Roda cannot load `should` module, because `should` extends the Object prototype by adding the `should` property.
-If you try to load `should` with roda, it will result in a conflict when accessing it:
-
-    plugins.should... what's that?
 
 Running tests
 -------------
