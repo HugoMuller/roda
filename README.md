@@ -96,7 +96,7 @@ You can pass a callback as well, if you want to do some extra stuff:
 Running tests
 -------------
 
-Unit Tests are run with [mocha](http://visionmedia.github.io/mocha/).
+Unit Tests are run with [mocha](http://mochajs.org/).
 You need to install this framework in order to run the tests:
     
     npm install mocha -g
